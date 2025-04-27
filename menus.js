@@ -32,7 +32,7 @@ async function showGasPumpMenu(wallet) {
   console.log(chalk.white('9. Back to main menu'));
   console.log(chalk.white('========================'));
   
-  require('./utils').rl.question(chalk.yellow('\nChoose an option (1-6): '), async (answer) => {
+  require('./utils').rl.question(chalk.yellow('\nChoose an option (1-9): '), async (answer) => {
     switch (answer) {
       case '1':
         await wrapETH(wallet, () => showGasPumpMenu(wallet));
@@ -51,12 +51,12 @@ async function showGasPumpMenu(wallet) {
         break;
       case '6':
         require('./utils').rl.question(chalk.yellow('Enter recipient address: '), async (toAddress) => {
-        require('./utils').rl.question(chalk.yellow('Enter amount of ETH to send: '), async (amountStr) => {
-          await sendToSpecificAddress(wallet, parseFloat(amountStr), toAddress);
-          await showGasPumpMenu(wallet);
+          require('./utils').rl.question(chalk.yellow('Enter amount of ETH to send: '), async (amountStr) => {
+            await sendToSpecificAddress(wallet, parseFloat(amountStr), toAddress);
+            await showGasPumpMenu(wallet);
+          });
         });
-      });
-      break;
+        break;
       case '7':
         await batchWrapETH(wallet, showGasPumpMenu);
         break;
