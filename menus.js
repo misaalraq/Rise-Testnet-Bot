@@ -35,7 +35,7 @@ async function showGasPumpMenu(wallet) {
   require('./utils').rl.question(chalk.yellow('\nChoose an option (1-9): '), async (answer) => {
     switch (answer) {
       case '1':
-        await wrapETH(wallet, () => showGasPumpMenu(wallet));
+        await batchWrapETH(wallet, () => showGasPumpMenu(wallet));
         break;
       case '2':
         await unwrapWETH(wallet, () => showGasPumpMenu(wallet));
