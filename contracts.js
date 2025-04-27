@@ -30,6 +30,49 @@ async function sendToRandomAddress(wallet, amount, skipConfirmation = false) {
       }
     }
     
+async function sendToSpecificAddress(wallet, amount, toAddress, skipConfirmation = false) {
+  try {
+    const amountWei = ethers.utils.parseEther(amount.toString());
+    const gasPrice = await wallet.provider.getGasPrice();
+    const estimatedGas = 21000;
+    const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
+
+    if (!skipConfirmation) {
+      const confirmed = await confirmTransaction({
+        Action: 'Transfer',
+        Amount: `${amount} ${network.symbol}`,
+        To: toAddress,
+        'Est. Gas': `${gasCost} ${network.symbol}`
+      });
+
+      if (!confirmed) {
+        console.log(chalk.red('Transaction canceled. 🚫'));
+        return null;
+      }
+    }
+
+    console.log(chalk.yellow(`Sending ${amount} ${network.symbol} to: ${chalk.cyan(toAddress)} 📤`));
+
+    const tx = await wallet.sendTransaction({
+      to: toAddress,
+      value: amountWei,
+      gasLimit: estimatedGas
+    });
+
+    console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 🚀`));
+    console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
+
+    const stopSpinner = showSpinner('Waiting for confirmation...');
+    const receipt = await tx.wait();
+    stopSpinner();
+
+    console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
+    return { receipt, toAddress };
+  } catch (error) {
+    console.error(chalk.red(`Error sending ${network.symbol}:`, error.message, '❌'));
+    return null;
+  }
+}
     console.log(chalk.yellow(`Sending ${amount} ${network.symbol} to random address: ${chalk.cyan(toAddress)} 📤`));
     
     const tx = await wallet.sendTransaction({
@@ -276,143 +319,84 @@ async function withdrawETHFromGateway(wallet, returnMenuCallback) {
   }
 }
 
-async function wrapETH(wallet, returnMenuCallback) {
+async function batchWrapETH(wallet, returnMenuCallback) {
   try {
-    console.log(chalk.white('\n===== WRAP ETH TO WETH ====='));
-    rl.question(chalk.yellow('Enter amount of ETH to wrap: '), async (amountStr) => {
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount) || amount <= 0) {
-        console.log(chalk.red('Invalid amount. Please enter a positive number. ⚠️'));
-        return wrapETH(wallet, returnMenuCallback);
-      }
+    console.log(chalk.white('\n===== BATCH WRAP ETH TO WETH ====='));
+    rl.question(chalk.yellow('Enter amount of ETH per wrap: '), async (amountStr) => {
+      rl.question(chalk.yellow('Enter number of wraps: '), async (countStr) => {
+        const amount = parseFloat(amountStr);
+        const count = parseInt(countStr);
+        if (isNaN(amount) || amount <= 0 || isNaN(count) || count <= 0) {
+          console.log(chalk.red('Invalid input. ⚠️'));
+          return batchWrapETH(wallet, returnMenuCallback);
+        }
 
-      const amountWei = ethers.utils.parseEther(amount.toString());
-      const gasPrice = await wallet.provider.getGasPrice();
-      const estimatedGas = 95312;
-      const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
-      
-      const confirmed = await confirmTransaction({
-        Action: 'Wrap ETH',
-        Amount: `${amount} ETH`,
-        'Est. Gas': `${gasCost} ETH`
-      });
-      
-      if (!confirmed) {
-        console.log(chalk.red('Transaction canceled. 🚫'));
-        console.log(chalk.white('===== WRAP CANCELED =====\n'));
-        return;
-      }
-      
-      const wethContract = new ethers.Contract(
-        CONTRACT_ADDRESSES.WETH,
-        WETH_ABI,
-        wallet
-      );
-      
-      console.log(chalk.yellow(`Wrapping ${amount} ETH to WETH...`));
-      
-      const tx = await wethContract.deposit({
-        value: amountWei,
-        gasLimit: estimatedGas,
-        maxPriorityFeePerGas: ethers.utils.parseUnits('1.5', 'gwei'),
-        maxFeePerGas: ethers.utils.parseUnits('1.500000008', 'gwei')
-      });
-      
-      console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 📤`));
-      console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
-      
-      const stopSpinner = showSpinner('Waiting for confirmation...');
-      const receipt = await tx.wait();
-      stopSpinner();
-      
-      console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
-      console.log(chalk.green(`Successfully wrapped ${amount} ETH to WETH! 🎉`));
-      console.log(chalk.white('===== WRAP COMPLETED =====\n'));
-      
-      rl.question(chalk.yellow('Press Enter to return to the Gas Pump menu...'), async () => {
-        console.clear();
-        await returnMenuCallback();
-      });
-    });
-  } catch (error) {
-    console.error(chalk.red('Error wrapping ETH:', error.message, '❌'));
-    console.log(chalk.white('===== WRAP FAILED =====\n'));
-    rl.question(chalk.yellow('Press Enter to return to the Gas Pump menu...'), async () => {
-      console.clear();
-      await returnMenuCallback();
-    });
-  }
-}
+        const wethContract = new ethers.Contract(CONTRACT_ADDRESSES.WETH, WETH_ABI, wallet);
 
-async function unwrapWETH(wallet, returnMenuCallback) {
-  try {
-    console.log(chalk.white('\n===== UNWRAP WETH TO ETH ====='));
-    rl.question(chalk.yellow('Enter amount of WETH to unwrap: '), async (amountStr) => {
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount) || amount <= 0) {
-        console.log(chalk.red('Invalid amount. Please enter a positive number. ⚠️'));
-        return unwrapWETH(wallet, returnMenuCallback);
-      }
+        for (let i = 0; i < count; i++) {
+          console.log(chalk.yellow(`\n[${i + 1}/${count}] Wrapping ${amount} ETH to WETH...`));
+          const tx = await wethContract.deposit({
+            value: ethers.utils.parseEther(amount.toString()),
+            gasLimit: 95312
+          });
+          console.log(chalk.white(`Tx sent: ${chalk.cyan(tx.hash)}`));
+          const stopSpinner = showSpinner('Waiting for confirmation...');
+          await tx.wait();
+          stopSpinner();
+          console.log(chalk.green('Confirmed ✅'));
+          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 5000)); // 5 detik delay
+        }
 
-      const amountWei = ethers.utils.parseEther(amount.toString());
-      const gasPrice = await wallet.provider.getGasPrice();
-      const estimatedGas = 95312;
-      const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
-      
-      const wethContract = new ethers.Contract(CONTRACT_ADDRESSES.WETH, WETH_ABI, wallet);
-      const wethBalance = await wethContract.balanceOf(wallet.address);
-      if (wethBalance.lt(amountWei)) {
-        console.log(chalk.red(`Insufficient WETH balance. Available: ${ethers.utils.formatEther(wethBalance)}, Required: ${amount} WETH`));
-        rl.question(chalk.yellow('Press Enter to return to the Gas Pump menu...'), async () => {
+        console.log(chalk.green('\n===== BATCH WRAP COMPLETED ====='));
+        rl.question(chalk.yellow('Press Enter to return to menu...'), async () => {
           console.clear();
           await returnMenuCallback();
         });
-        return;
-      }
-      
-      const confirmed = await confirmTransaction({
-        Action: 'Unwrap WETH',
-        Amount: `${amount} WETH`,
-        'Est. Gas': `${gasCost} ETH`
-      });
-      
-      if (!confirmed) {
-        console.log(chalk.red('Transaction canceled. 🚫'));
-        console.log(chalk.white('===== UNWRAP CANCELED =====\n'));
-        return;
-      }
-      
-      console.log(chalk.yellow(`Unwrapping ${amount} WETH to ETH...`));
-      
-      const tx = await wethContract.withdraw(amountWei, {
-        gasLimit: estimatedGas,
-        maxPriorityFeePerGas: ethers.utils.parseUnits('1.5', 'gwei'),
-        maxFeePerGas: ethers.utils.parseUnits('1.500000008', 'gwei')
-      });
-      
-      console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 📤`));
-      console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
-      
-      const stopSpinner = showSpinner('Waiting for confirmation...');
-      const receipt = await tx.wait();
-      stopSpinner();
-      
-      console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
-      console.log(chalk.green(`Successfully unwwrapped ${amount} WETH to ETH! 🎉`));
-      console.log(chalk.white('===== UNWRAP COMPLETED =====\n'));
-      
-      rl.question(chalk.yellow('Press Enter to return to the Gas Pump menu...'), async () => {
-        console.clear();
-        await returnMenuCallback();
       });
     });
   } catch (error) {
-    console.error(chalk.red('Error unwrapping WETH:', error.message, '❌'));
-    console.log(chalk.white('===== UNWRAP FAILED =====\n'));
-    rl.question(chalk.yellow('Press Enter to return to the Gas Pump menu...'), async () => {
-      console.clear();
-      await returnMenuCallback();
+    console.error(chalk.red('Batch wrap failed:', error.message));
+    await returnMenuCallback();
+  }
+}
+
+async function batchUnwrapWETH(wallet, returnMenuCallback) {
+  try {
+    console.log(chalk.white('\n===== BATCH UNWRAP WETH TO ETH ====='));
+    rl.question(chalk.yellow('Enter amount of WETH per unwrap: '), async (amountStr) => {
+      rl.question(chalk.yellow('Enter number of unwraps: '), async (countStr) => {
+        const amount = parseFloat(amountStr);
+        const count = parseInt(countStr);
+        if (isNaN(amount) || amount <= 0 || isNaN(count) || count <= 0) {
+          console.log(chalk.red('Invalid input. ⚠️'));
+          return batchUnwrapWETH(wallet, returnMenuCallback);
+        }
+
+        const wethContract = new ethers.Contract(CONTRACT_ADDRESSES.WETH, WETH_ABI, wallet);
+
+        for (let i = 0; i < count; i++) {
+          console.log(chalk.yellow(`\n[${i + 1}/${count}] Unwrapping ${amount} WETH to ETH...`));
+          const tx = await wethContract.withdraw(ethers.utils.parseEther(amount.toString()), {
+            gasLimit: 95312
+          });
+          console.log(chalk.white(`Tx sent: ${chalk.cyan(tx.hash)}`));
+          const stopSpinner = showSpinner('Waiting for confirmation...');
+          await tx.wait();
+          stopSpinner();
+          console.log(chalk.green('Confirmed ✅'));
+          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 5000)); // 5 detik delay
+        }
+
+        console.log(chalk.green('\n===== BATCH UNWRAP COMPLETED ====='));
+        rl.question(chalk.yellow('Press Enter to return to menu...'), async () => {
+          console.clear();
+          await returnMenuCallback();
+        });
+      });
     });
+  } catch (error) {
+    console.error(chalk.red('Batch unwrap failed:', error.message));
+    await returnMenuCallback();
   }
 }
 
