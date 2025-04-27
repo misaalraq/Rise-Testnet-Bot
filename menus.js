@@ -8,7 +8,10 @@ const {
   unwrapWETH,
   approveWETH,
   swapWETHtoUSDC,
-  swapUSDCtoWETH
+  swapUSDCtoWETH,
+  sendToSpecificAddress,   // <== TAMBAH
+  batchWrapETH,            // <== TAMBAH
+  batchUnwrapWETH
 } = require('./contracts');
 
 async function showGasPumpMenu(wallet) {
@@ -23,7 +26,10 @@ async function showGasPumpMenu(wallet) {
   console.log(chalk.white('3. Approve WETH for DODO'));
   console.log(chalk.white('4. Swap WETH to USDC'));
   console.log(chalk.white('5. Swap USDC to WETH'));
-  console.log(chalk.white('6. Back to main menu'));
+  console.log(chalk.white('6. Send to Specific Address'));  // <== TAMBAH
+  console.log(chalk.white('7. Batch Wrap ETH to WETH'));     // <== TAMBAH
+  console.log(chalk.white('8. Batch Unwrap WETH to ETH'));   // <== TAMBAH
+  console.log(chalk.white('9. Back to main menu'));
   console.log(chalk.white('========================'));
   
   require('./utils').rl.question(chalk.yellow('\nChoose an option (1-6): '), async (answer) => {
@@ -44,6 +50,20 @@ async function showGasPumpMenu(wallet) {
         await swapUSDCtoWETH(wallet, () => showGasPumpMenu(wallet));
         break;
       case '6':
+        require('./utils').rl.question(chalk.yellow('Enter recipient address: '), async (toAddress) => {
+        require('./utils').rl.question(chalk.yellow('Enter amount of ETH to send: '), async (amountStr) => {
+          await sendToSpecificAddress(wallet, parseFloat(amountStr), toAddress);
+          await showGasPumpMenu(wallet);
+        });
+      });
+      break;
+      case '7':
+        await batchWrapETH(wallet, showGasPumpMenu);
+        break;
+      case '8':
+        await batchUnwrapWETH(wallet, showGasPumpMenu);
+        break;
+      case '9':
         console.clear();
         await showMainMenu();
         break;
