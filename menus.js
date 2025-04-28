@@ -4,14 +4,13 @@ const {
   executeRandomTransfers,
   depositETHToGateway,
   withdrawETHFromGateway,
-  wrapETH,
+  batchWrapETH,
+  batchUnwrapWETH,
+  sendToSpecificAddress,
   unwrapWETH,
   approveWETH,
   swapWETHtoUSDC,
-  swapUSDCtoWETH,
-  sendToSpecificAddress,   // <== TAMBAH
-  batchWrapETH,            // <== TAMBAH
-  batchUnwrapWETH
+  swapUSDCtoWETH
 } = require('./contracts');
 
 async function showGasPumpMenu(wallet) {
@@ -19,23 +18,21 @@ async function showGasPumpMenu(wallet) {
   const { provider, proxy } = await connectToNetwork();
   await displayBanner(provider);
   await getWalletInfo(wallet, provider, proxy);
-  
+
   console.log(chalk.white('\n===== GAS PUMP MENU ====='));
-  console.log(chalk.white('1. Wrap ETH to WETH'));
+  console.log(chalk.white('1. Batch Wrap ETH to WETH'));
   console.log(chalk.white('2. Unwrap WETH to ETH'));
   console.log(chalk.white('3. Approve WETH for DODO'));
   console.log(chalk.white('4. Swap WETH to USDC'));
   console.log(chalk.white('5. Swap USDC to WETH'));
-  console.log(chalk.white('6. Send to Specific Address'));  // <== TAMBAH
-  console.log(chalk.white('7. Batch Wrap ETH to WETH'));     // <== TAMBAH
-  console.log(chalk.white('8. Batch Unwrap WETH to ETH'));   // <== TAMBAH
-  console.log(chalk.white('9. Back to main menu'));
+  console.log(chalk.white('6. Send to Specific Address'));
+  console.log(chalk.white('7. Back to main menu'));
   console.log(chalk.white('========================'));
-  
-  require('./utils').rl.question(chalk.yellow('\nChoose an option (1-9): '), async (answer) => {
+
+  require('./utils').rl.question(chalk.yellow('\nChoose an option (1-7): '), async (answer) => {
     switch (answer) {
       case '1':
-        await batchWrapETH(wallet, () => showGasPumpMenu(wallet));
+        await batchWrapETH(wallet, showGasPumpMenu);
         break;
       case '2':
         await unwrapWETH(wallet, () => showGasPumpMenu(wallet));
@@ -58,12 +55,6 @@ async function showGasPumpMenu(wallet) {
         });
         break;
       case '7':
-        await batchWrapETH(wallet, showGasPumpMenu);
-        break;
-      case '8':
-        await batchUnwrapWETH(wallet, showGasPumpMenu);
-        break;
-      case '9':
         console.clear();
         await showMainMenu();
         break;
@@ -80,13 +71,13 @@ async function showInariBankMenu(wallet) {
   const { provider, proxy } = await connectToNetwork();
   await displayBanner(provider);
   await getWalletInfo(wallet, provider, proxy);
-  
+
   console.log(chalk.white('\n===== INARI BANK MENU ====='));
   console.log(chalk.white('1. Supply ETH to Inari Bank'));
   console.log(chalk.white('2. Withdraw ETH from Inari Bank'));
   console.log(chalk.white('3. Back to main menu'));
   console.log(chalk.white('=========================='));
-  
+
   require('./utils').rl.question(chalk.yellow('\nChoose an option (1-3): '), async (answer) => {
     switch (answer) {
       case '1':
@@ -111,7 +102,7 @@ async function showMainMenu() {
   const { provider, wallet, proxy } = await connectToNetwork();
   await displayBanner(provider);
   await getWalletInfo(wallet, provider, proxy);
-  
+
   console.log(chalk.white('\n===== MAIN MENU ====='));
   console.log(chalk.white('1. Send to Random Addresses'));
   console.log(chalk.white('2. Gas Pump'));
@@ -119,7 +110,7 @@ async function showMainMenu() {
   console.log(chalk.white('4. Exit'));
   console.log(chalk.white('More feature will add soon!'));
   console.log(chalk.white('===================='));
-  
+
   require('./utils').rl.question(chalk.yellow('\nChoose an option (1-4): '), async (answer) => {
     switch (answer) {
       case '1':
@@ -140,7 +131,7 @@ async function showMainMenu() {
         break;
       default:
         console.log(chalk.red('Invalid option. Please try again. ⚠️'));
-        await showMainMenu();
+        await showMainMenu(wallet);
         break;
     }
   });
