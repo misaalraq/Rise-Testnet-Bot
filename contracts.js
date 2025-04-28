@@ -868,6 +868,49 @@ async function unwrapWETH(wallet, returnMenuCallback) {
     await returnMenuCallback();
   }
 }
+async function sendToSpecificAddress(wallet, amount, toAddress, skipConfirmation = false) {
+  try {
+    const amountWei = ethers.utils.parseEther(amount.toString());
+    const gasPrice = await wallet.provider.getGasPrice();
+    const estimatedGas = 21000;
+    const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
+
+    if (!skipConfirmation) {
+      const confirmed = await confirmTransaction({
+        Action: 'Transfer',
+        Amount: `${amount} ${network.symbol}`,
+        To: toAddress,
+        'Est. Gas': `${gasCost} ${network.symbol}`
+      });
+
+      if (!confirmed) {
+        console.log(chalk.red('Transaction canceled. 🚫'));
+        return null;
+      }
+    }
+
+    console.log(chalk.yellow(`Sending ${amount} ${network.symbol} to: ${chalk.cyan(toAddress)} 📤`));
+
+    const tx = await wallet.sendTransaction({
+      to: toAddress,
+      value: amountWei,
+      gasLimit: estimatedGas
+    });
+
+    console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 🚀`));
+    console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
+
+    const stopSpinner = showSpinner('Waiting for confirmation...');
+    const receipt = await tx.wait();
+    stopSpinner();
+
+    console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
+    return { receipt, toAddress };
+  } catch (error) {
+    console.error(chalk.red(`Error sending ${network.symbol}:`, error.message, '❌'));
+    return null;
+  }
+}
 module.exports = {
   executeRandomTransfers,
   depositETHToGateway,
