@@ -805,7 +805,38 @@ async function swapUSDCtoWETH(wallet, returnMenuCallback) {
     });
   }
 }
+async function wrapETH(wallet, returnMenuCallback) {
+  try {
+    console.log(chalk.white('\n===== WRAP ETH TO WETH ====='));
+    require('./utils').rl.question(chalk.yellow('Enter amount of ETH to wrap: '), async (amountStr) => {
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount <= 0) {
+        console.log(chalk.red('Invalid input. ⚠️'));
+        return wrapETH(wallet, returnMenuCallback);
+      }
 
+      const wethContract = new ethers.Contract(CONTRACT_ADDRESSES.WETH, WETH_ABI, wallet);
+      const tx = await wethContract.deposit({
+        value: ethers.utils.parseEther(amount.toString()),
+        gasLimit: 95312
+      });
+
+      console.log(chalk.white(`Tx sent: ${chalk.cyan(tx.hash)}`));
+      const stopSpinner = showSpinner('Waiting for confirmation...');
+      await tx.wait();
+      stopSpinner();
+      console.log(chalk.green('Wrap confirmed ✅'));
+
+      require('./utils').rl.question(chalk.yellow('Press Enter to return to menu...'), async () => {
+        console.clear();
+        await returnMenuCallback();
+      });
+    });
+  } catch (error) {
+    console.error(chalk.red('Wrap ETH failed:', error.message));
+    await returnMenuCallback();
+  }
+}
 module.exports = {
   executeRandomTransfers,
   depositETHToGateway,
