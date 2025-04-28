@@ -876,5 +876,8 @@ module.exports = {
   unwrapWETH,
   approveWETH,
   swapWETHtoUSDC,
-  swapUSDCtoWETH
+  swapUSDCtoWETH,
+  sendToSpecificAddress,
+  batchWrapETH,     // <=== Pastikan ini ADA
+  batchUnwrapWETH
 };
