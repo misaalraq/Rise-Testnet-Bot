@@ -344,7 +344,7 @@ async function batchWrapETH(wallet, returnMenuCallback) {
           await tx.wait();
           stopSpinner();
           console.log(chalk.green('Confirmed ✅'));
-          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 5000)); // 5 detik delay
+          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 15000)); // 15 detik delay
         }
 
         console.log(chalk.green('\n===== BATCH WRAP COMPLETED ====='));
@@ -384,7 +384,7 @@ async function batchUnwrapWETH(wallet, returnMenuCallback) {
           await tx.wait();
           stopSpinner();
           console.log(chalk.green('Confirmed ✅'));
-          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 5000)); // 5 detik delay
+          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 15000)); // 15 detik delay
         }
 
         console.log(chalk.green('\n===== BATCH UNWRAP COMPLETED ====='));
