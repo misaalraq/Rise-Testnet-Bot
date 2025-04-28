@@ -837,6 +837,37 @@ async function wrapETH(wallet, returnMenuCallback) {
     await returnMenuCallback();
   }
 }
+async function unwrapWETH(wallet, returnMenuCallback) {
+  try {
+    console.log(chalk.white('\n===== UNWRAP WETH TO ETH ====='));
+    require('./utils').rl.question(chalk.yellow('Enter amount of WETH to unwrap: '), async (amountStr) => {
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount <= 0) {
+        console.log(chalk.red('Invalid input. ⚠️'));
+        return unwrapWETH(wallet, returnMenuCallback);
+      }
+
+      const wethContract = new ethers.Contract(CONTRACT_ADDRESSES.WETH, WETH_ABI, wallet);
+      const tx = await wethContract.withdraw(ethers.utils.parseEther(amount.toString()), {
+        gasLimit: 95312
+      });
+
+      console.log(chalk.white(`Tx sent: ${chalk.cyan(tx.hash)}`));
+      const stopSpinner = showSpinner('Waiting for confirmation...');
+      await tx.wait();
+      stopSpinner();
+      console.log(chalk.green('Unwrap confirmed ✅'));
+
+      require('./utils').rl.question(chalk.yellow('Press Enter to return to menu...'), async () => {
+        console.clear();
+        await returnMenuCallback();
+      });
+    });
+  } catch (error) {
+    console.error(chalk.red('Unwrap WETH failed:', error.message));
+    await returnMenuCallback();
+  }
+}
 module.exports = {
   executeRandomTransfers,
   depositETHToGateway,
