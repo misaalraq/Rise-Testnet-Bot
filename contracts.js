@@ -175,70 +175,76 @@ async function executeRandomTransfers(wallet, returnMenuCallback) {
 async function depositETHToGateway(wallet, returnMenuCallback) {
   try {
     console.log(chalk.yellow('WARNING: Verify WrappedTokenGatewayV3 address for Rise Testnet before proceeding.'));
-    console.log(chalk.white('\n===== SUPPLY ETH TO INARI BANK ====='));
-    rl.question(chalk.yellow('Enter amount of ETH to supply: '), async (amountStr) => {
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount) || amount <= 0) {
-        console.log(chalk.red('Invalid amount. Please enter a positive number. ⚠️'));
-        return depositETHToGateway(wallet, returnMenuCallback);
-      }
+    console.log(chalk.white('\n===== SUPPLY ETH TO INARI BANK (BATCH MODE) ====='));
 
-      const amountWei = ethers.utils.parseEther(amount.toString());
-      const gasPrice = await wallet.provider.getGasPrice();
-      const estimatedGas = 310079;
-      const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
-      
-      const confirmed = await confirmTransaction({
-        Action: 'Supply ETH',
-        Amount: `${amount} ETH`,
-        'Est. Gas': `${gasCost} ETH`
-      });
-      
-      if (!confirmed) {
-        console.log(chalk.red('Transaction canceled. 🚫'));
-        console.log(chalk.white('===== SUPPLY CANCELED =====\n'));
-        return;
-      }
-      
-      const gatewayContract = new ethers.Contract(
-        CONTRACT_ADDRESSES.WrappedTokenGatewayV3,
-        WrappedTokenGatewayV3ABI,
-        wallet
-      );
-      
-      console.log(chalk.yellow(`Supplying ${amount} ETH to Inari Bank...`));
-      
-      const tx = await gatewayContract.depositETH(
-        '0x81edb206Fd1FB9dC517B61793AaA0325c8d11A23',
-        wallet.address,
-        0,
-        {
-          value: amountWei,
-          gasLimit: estimatedGas,
-          maxPriorityFeePerGas: ethers.utils.parseUnits('1.5', 'gwei'),
-          maxFeePerGas: ethers.utils.parseUnits('1.500000008', 'gwei')
+    rl.question(chalk.yellow('Enter amount of ETH to supply per transaction: '), async (amountStr) => {
+      rl.question(chalk.yellow('How many times do you want to repeat the supply? '), async (countStr) => {
+        const amount = parseFloat(amountStr);
+        const count = parseInt(countStr);
+
+        if (isNaN(amount) || amount <= 0 || isNaN(count) || count <= 0) {
+          console.log(chalk.red('Invalid input. ⚠️'));
+          return depositETHToGateway(wallet, returnMenuCallback);
         }
-      );
-      
-      console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 📤`));
-      console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
-      
-      const stopSpinner = showSpinner('Waiting for confirmation...');
-      const receipt = await tx.wait();
-      stopSpinner();
-      
-      console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
-      console.log(chalk.green(`Successfully supplied ${amount} ETH! 🎉`));
-      console.log(chalk.white('===== SUPPLY COMPLETED =====\n'));
-      
-      rl.question(chalk.yellow('Press Enter to return to the Inari Bank menu...'), async () => {
-        console.clear();
-        await returnMenuCallback();
+
+        const gatewayContract = new ethers.Contract(
+          CONTRACT_ADDRESSES.WrappedTokenGatewayV3,
+          WrappedTokenGatewayV3ABI,
+          wallet
+        );
+
+        for (let i = 0; i < count; i++) {
+          console.log(chalk.yellow(`\n[${i + 1}/${count}] Supplying ${amount} ETH to Inari Bank...`));
+
+          const amountWei = ethers.utils.parseEther(amount.toString());
+          const gasPrice = await wallet.provider.getGasPrice();
+          const estimatedGas = 310079;
+          const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
+
+          const confirmed = await confirmTransaction({
+            Action: 'Supply ETH',
+            Amount: `${amount} ETH`,
+            'Est. Gas': `${gasCost} ETH`
+          });
+
+          if (!confirmed) {
+            console.log(chalk.red('Transaction canceled. 🚫'));
+            break;
+          }
+
+          const tx = await gatewayContract.depositETH(
+            '0x81edb206Fd1FB9dC517B61793AaA0325c8d11A23',
+            wallet.address,
+            0,
+            {
+              value: amountWei,
+              gasLimit: estimatedGas,
+              maxPriorityFeePerGas: ethers.utils.parseUnits('1.5', 'gwei'),
+              maxFeePerGas: ethers.utils.parseUnits('1.500000008', 'gwei')
+            }
+          );
+
+          console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 📤`));
+          console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
+          const stopSpinner = showSpinner('Waiting for confirmation...');
+          const receipt = await tx.wait();
+          stopSpinner();
+
+          console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
+          console.log(chalk.green(`Successfully supplied ${amount} ETH! 🎉`));
+
+          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 15000)); // 15 detik delay
+        }
+
+        console.log(chalk.white('\n===== BATCH SUPPLY COMPLETED ====='));
+        rl.question(chalk.yellow('Press Enter to return to the Inari Bank menu...'), async () => {
+          console.clear();
+          await returnMenuCallback();
+        });
       });
     });
   } catch (error) {
     console.error(chalk.red('Error supplying ETH:', error.message, '❌'));
-    console.log(chalk.white('===== SUPPLY FAILED =====\n'));
     rl.question(chalk.yellow('Press Enter to return to the Inari Bank menu...'), async () => {
       console.clear();
       await returnMenuCallback();
@@ -249,69 +255,75 @@ async function depositETHToGateway(wallet, returnMenuCallback) {
 async function withdrawETHFromGateway(wallet, returnMenuCallback) {
   try {
     console.log(chalk.yellow('WARNING: Verify WrappedTokenGatewayV3 address for Rise Testnet before proceeding.'));
-    console.log(chalk.white('\n===== WITHDRAW ETH FROM INARI BANK ====='));
-    rl.question(chalk.yellow('Enter amount of ETH to withdraw: '), async (amountStr) => {
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount) || amount <= 0) {
-        console.log(chalk.red('Invalid amount. Please enter a positive number. ⚠️'));
-        return withdrawETHFromGateway(wallet, returnMenuCallback);
-      }
+    console.log(chalk.white('\n===== WITHDRAW ETH FROM INARI BANK (BATCH MODE) ====='));
 
-      const amountWei = ethers.utils.parseEther(amount.toString());
-      const gasPrice = await wallet.provider.getGasPrice();
-      const estimatedGas = 310079;
-      const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
-      
-      const confirmed = await confirmTransaction({
-        Action: 'Withdraw ETH',
-        Amount: `${amount} ETH`,
-        'Est. Gas': `${gasCost} ETH`
-      });
-      
-      if (!confirmed) {
-        console.log(chalk.red('Transaction canceled. 🚫'));
-        console.log(chalk.white('===== WITHDRAW CANCELED =====\n'));
-        return;
-      }
-      
-      const gatewayContract = new ethers.Contract(
-        CONTRACT_ADDRESSES.WrappedTokenGatewayV3,
-        WrappedTokenGatewayV3ABI,
-        wallet
-      );
-      
-      console.log(chalk.yellow(`Withdrawing ${amount} ETH from Inari Bank...`));
-      
-      const tx = await gatewayContract.withdrawETH(
-        '0x81edb206Fd1FB9dC517B61793AaA0325c8d11A23',
-        amountWei,
-        wallet.address,
-        {
-          gasLimit: estimatedGas,
-          maxPriorityFeePerGas: ethers.utils.parseUnits('1.5', 'gwei'),
-          maxFeePerGas: ethers.utils.parseUnits('1.500000008', 'gwei')
+    rl.question(chalk.yellow('Enter amount of ETH to withdraw per transaction: '), async (amountStr) => {
+      rl.question(chalk.yellow('How many times do you want to repeat the withdraw? '), async (countStr) => {
+        const amount = parseFloat(amountStr);
+        const count = parseInt(countStr);
+
+        if (isNaN(amount) || amount <= 0 || isNaN(count) || count <= 0) {
+          console.log(chalk.red('Invalid input. ⚠️'));
+          return withdrawETHFromGateway(wallet, returnMenuCallback);
         }
-      );
-      
-      console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 📤`));
-      console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
-      
-      const stopSpinner = showSpinner('Waiting for confirmation...');
-      const receipt = await tx.wait();
-      stopSpinner();
-      
-      console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
-      console.log(chalk.green(`Successfully withdrew ${amount} ETH! 🎉`));
-      console.log(chalk.white('===== WITHDRAW COMPLETED =====\n'));
-      
-      rl.question(chalk.yellow('Press Enter to return to the Inari Bank menu...'), async () => {
-        console.clear();
-        await returnMenuCallback();
+
+        const gatewayContract = new ethers.Contract(
+          CONTRACT_ADDRESSES.WrappedTokenGatewayV3,
+          WrappedTokenGatewayV3ABI,
+          wallet
+        );
+
+        for (let i = 0; i < count; i++) {
+          console.log(chalk.yellow(`\n[${i + 1}/${count}] Withdrawing ${amount} ETH from Inari Bank...`));
+
+          const amountWei = ethers.utils.parseEther(amount.toString());
+          const gasPrice = await wallet.provider.getGasPrice();
+          const estimatedGas = 310079;
+          const gasCost = ethers.utils.formatEther(gasPrice.mul(estimatedGas));
+
+          const confirmed = await confirmTransaction({
+            Action: 'Withdraw ETH',
+            Amount: `${amount} ETH`,
+            'Est. Gas': `${gasCost} ETH`
+          });
+
+          if (!confirmed) {
+            console.log(chalk.red('Transaction canceled. 🚫'));
+            break;
+          }
+
+          const tx = await gatewayContract.withdrawETH(
+            '0x81edb206Fd1FB9dC517B61793AaA0325c8d11A23',
+            amountWei,
+            wallet.address,
+            {
+              gasLimit: estimatedGas,
+              maxPriorityFeePerGas: ethers.utils.parseUnits('1.5', 'gwei'),
+              maxFeePerGas: ethers.utils.parseUnits('1.500000008', 'gwei')
+            }
+          );
+
+          console.log(chalk.white(`Transaction sent! Hash: ${chalk.cyan(tx.hash)} 📤`));
+          console.log(chalk.gray(`View on explorer: ${network.explorer}/tx/${tx.hash} 🔗`));
+          const stopSpinner = showSpinner('Waiting for confirmation...');
+          const receipt = await tx.wait();
+          stopSpinner();
+
+          console.log(chalk.green(`Transaction confirmed in block ${receipt.blockNumber} ✅`));
+          console.log(chalk.green(`Successfully withdrew ${amount} ETH! 🎉`));
+
+          if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 15000)); // 15 detik delay
+        }
+
+        console.log(chalk.white('\n===== BATCH WITHDRAW COMPLETED ====='));
+        rl.question(chalk.yellow('Press Enter to return to the Inari Bank menu...'), async () => {
+          console.clear();
+          await returnMenuCallback();
+        });
       });
     });
   } catch (error) {
     console.error(chalk.red('Error withdrawing ETH:', error.message, '❌'));
-    console.log(chalk.white('===== WITHDRAW FAILED =====\n'));
     rl.question(chalk.yellow('Press Enter to return to the Inari Bank menu...'), async () => {
       console.clear();
       await returnMenuCallback();
